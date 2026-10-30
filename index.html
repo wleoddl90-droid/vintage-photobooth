@@ -81,10 +81,12 @@
     background:#000;border:9px solid #1f1d1a;border-radius:2px;overflow:hidden;box-shadow:inset 0 0 0 1px #000,0 2px 0 rgba(255,255,255,.35);
   }
   .stage video{position:absolute;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none}
-  .stage canvas#view{position:absolute;inset:0;width:100%;height:100%;display:block}
-  .stage.nogl video{inset:0;width:100%;height:100%;opacity:1;object-fit:cover;filter:grayscale(1) contrast(1.3) brightness(1.08) sepia(.3)}
+  .stage canvas#view{position:absolute;inset:0;width:100%;height:100%;display:none}
+  .stage.nogl video{inset:0;width:100%;height:100%;opacity:1;object-fit:cover;filter:none}
   .stage.nogl video.mirror{transform:scaleX(-1)}
   .stage.nogl canvas#view{display:none}
+  .stage video{inset:0;width:100%;height:100%;opacity:1;object-fit:cover}
+  .stage video.mirror{transform:scaleX(-1)}
   .count{
     position:absolute;inset:0;display:grid;place-items:center;z-index:3;pointer-events:none;
     font-family:var(--display);font-style:italic;font-weight:600;font-size:min(36vw,170px);line-height:1;color:#fff;text-shadow:0 2px 24px rgba(0,0,0,.65);
@@ -146,7 +148,7 @@
 </style>
 </head>
 <body>
-<div class="flashfull" id="flash"></div>
+
 <main class="app">
 
   <!-- 1. 부스 앞 -->
@@ -223,7 +225,7 @@
         <p class="sub">4 · 6 · 9 cut</p>
       </header>
 
-      <div class="wall" id="wall" data-flash="soft">
+      <div class="wall" id="wall" data-flash="off">
         <div class="lamp" id="lamp"></div>
         <div class="stage" id="stage">
           <video id="cam" playsinline muted autoplay></video>
@@ -245,38 +247,12 @@
             <button type="button" data-n="9" aria-pressed="false">9컷</button>
           </div>
         </div>
-        <div class="row">
-          <span class="lab">SOFT FLASH</span>
-          <div class="seg" id="segFlash">
-            <button type="button" data-flash="off" aria-pressed="false">OFF</button>
-            <button type="button" data-flash="soft" aria-pressed="true">SOFT</button>
-            <button type="button" data-flash="bright" aria-pressed="false">BRIGHT</button>
-          </div>
-        </div>
-        <div class="row">
-          <span class="lab">SKIN</span>
-          <div class="seg" id="segSkin">
-            <button type="button" data-skin="off" aria-pressed="false">OFF</button>
-            <button type="button" data-skin="natural" aria-pressed="true">NATURAL</button>
-          </div>
-        </div>
-        <div class="row">
-          <span class="lab">PARISIAN SOFT CONTRAST</span>
-          <div class="seg" data-segpar>
-            <button type="button" data-par="off" aria-pressed="false">OFF</button>
-            <button type="button" data-par="on" aria-pressed="true">ON</button>
-          </div>
-        </div>
-        <details class="adj">
-          <summary>필터 세부 조절</summary>
-          <div id="adjBox"></div>
-          <button class="btn" id="adjReset" type="button">기본값으로</button>
-        </details>
+        <p class="hint">촬영 중에는 필터 없는 원본 카메라 화면을 보여줘요. 보정은 촬영 후 결과 화면에서 적용할 수 있어요.</p>
         <div class="actions">
           <button class="btn primary" id="startBtn" type="button">촬영 시작</button>
           <button class="btn" id="flipBtn" type="button">카메라 전환</button>
         </div>
-        <p class="hint">누르면 3초 뒤 첫 컷, 그다음부터 2초 간격으로 자동 촬영돼요. 찍기 직전에 화면 조명이 잠깐 밝아졌다가 돌아와요.</p>
+        <p class="hint">첫 촬영까지 3초, 이후 컷은 1초 간격으로 자동 촬영돼요. 플래시 효과 없이 원본으로 촬영합니다.</p>
       </div>
     </div>
   </section>
@@ -300,12 +276,24 @@
         <input id="footerText" type="text" maxlength="24" value="PHOTO BOOTH" autocomplete="off">
       </label>
       <div class="row">
-        <span class="lab">PARISIAN SOFT CONTRAST</span>
-        <div class="seg" data-segpar>
-          <button type="button" data-par="off" aria-pressed="false">OFF</button>
-          <button type="button" data-par="on" aria-pressed="true">ON</button>
+        <span class="lab">MODE · 촬영 후 보정</span>
+        <div class="seg" id="segMode">
+          <button type="button" data-mode="color" aria-pressed="true">COLOR</button>
+          <button type="button" data-mode="bw" aria-pressed="false">BW</button>
         </div>
       </div>
+      <div class="row">
+        <span class="lab">SKIN</span>
+        <div class="seg" id="segSkin">
+          <button type="button" data-skin="off" aria-pressed="false">OFF</button>
+          <button type="button" data-skin="natural" aria-pressed="true">NATURAL</button>
+        </div>
+      </div>
+      <details class="adj">
+        <summary>보정 세부 조절</summary>
+        <div id="adjBox"></div>
+        <button class="btn" id="adjReset" type="button">기본값 복원</button>
+      </details>
     </div>
 
     <div class="actions">
@@ -326,7 +314,7 @@
 
   // ---- 설정값 ----
   const LEAD = 3;        // 첫 컷까지(초)
-  const INTERVAL = 2;    // 컷 사이 간격(초)
+  const INTERVAL = 1;    // 컷 사이 간격(초)
   const CELL_AR = 0.8;   // 사진 한 컷 가로:세로 = 4:5
   const PAPER = '#f2eee3';
   // strips = 세로 줄 수, per = 한 줄에 들어가는 컷 수, cw = 한 컷 가로 픽셀(고해상도 저장)
@@ -355,21 +343,17 @@
       swatch: 'radial-gradient(circle at 25% 30%,#ffc2d4,transparent 60%),radial-gradient(circle at 75% 70%,#bcd2ff,transparent 60%),#f2edfb' }
   ];
 
-  // PARISIAN SOFT CONTRAST 기본값: 중간~조금 높은 대비, 은은한 그레인, 따뜻한 크림톤, 아주 약한 피부 보정
-  const DEFAULTS = { contrast: .5, brightness: 0, grain: .4, hisoft: .5, skin: .4, warm: .45 };
+  // 촬영 후 보정 기본값. 0~1 슬라이더는 색/밝기 조정에만 사용.
+  const DEFAULTS = { contrast: .52, brightness: .50, saturation: .60, warm: .53, grain: .18, skin: .08 };
   const ADJ = [
-    ['contrast',   'Contrast',            0, 1],
-    ['brightness', 'Brightness',         -1, 1],
-    ['grain',      'Film Grain',          0, 1],
-    ['hisoft',     'Highlight Softness',  0, 1],
-    ['skin',       'Skin Smoothing',      0, 1],
-    ['warm',       'Vintage Warmth',      0, 1]
+    ['contrast','Contrast',0,1], ['brightness','Brightness',0,1],
+    ['saturation','Saturation',0,1], ['warm','Warmth',0,1],
+    ['grain','Film Grain',0,1], ['skin','Skin Smoothing',0,.10]
   ];
-  const FACE_LIFT = { off: 0, soft: .10, bright: .15 }; // 얼굴 중간톤 밝기 보정량(10~15%)
 
   // bg: 0 = 사진만(A4 없음), 1.. = BGS[bg-1]
   const state = {
-    n: 4, flash: 'soft', skinOn: true, parisian: true, adj: { ...DEFAULTS },
+    n: 4, mode: 'color', skinOn: true, adj: { ...DEFAULTS },
     bg: 0, facing: 'user', stream: null, phase: 'idle', runId: 0, wl: null,
     shots: [], raws: [], pars: [], cache: {}
   };
@@ -421,107 +405,63 @@
   // =====================================================================
   const VS = 'attribute vec2 p;varying vec2 vUv;void main(){vUv=p*.5+.5;gl_Position=vec4(p,0.,1.);}';
   const FS = `
-#ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
-#else
-precision mediump float;
-#endif
 uniform sampler2D uTex;
 uniform vec4 uCrop;
 uniform float uMirror, uAspect;
 uniform float uBW, uContrast, uBright, uGrain, uHiSoft, uSkin, uWarm, uFace, uSeed;
 varying vec2 vUv;
-
-vec2 tuv(vec2 uv){
-  uv = clamp(uv, 0.0, 1.0);
-  if (uMirror > 0.5) uv.x = 1.0 - uv.x;
-  return uCrop.xy + uv * uCrop.zw;
-}
-vec3 S(vec2 uv){ return texture2D(uTex, tuv(uv)).rgb; }
-float lum(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
-float pan(vec3 c){ return dot(c, vec3(0.34, 0.52, 0.14)); }
-float hash(vec2 p){
-  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-  p3 += dot(p3, p3.yzx + 33.33);
-  return fract((p3.x + p3.y) * p3.z);
-}
-float vnoise(vec2 p){
-  vec2 i = floor(p), f = fract(p);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
-}
-// 화면 높이를 1로 본 반지름 rad 안의 샘플 위치(해상도와 상관없이 같은 크기)
-vec2 ring(float i, float n, float rad){
-  float a = i * 2.39996;
-  float r = sqrt((i + 0.5) / n) * rad;
-  return vec2(cos(a) / uAspect, sin(a)) * r;
-}
-// 피부색 가능성 (머리카락·검은 옷·눈·입술은 낮게 나온다)
+vec2 tuv(vec2 uv){ if(uMirror>.5)uv.x=1.-uv.x; return uCrop.xy+clamp(uv,0.,1.)*uCrop.zw; }
+vec3 S(vec2 uv){return texture2D(uTex,tuv(uv)).rgb;}
+float lum(vec3 c){return dot(c,vec3(.299,.587,.114));}
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float skinLike(vec3 c){
-  float y = lum(c);
-  float cb = -0.168736 * c.r - 0.331264 * c.g + 0.5 * c.b;
-  float cr = 0.5 * c.r - 0.418688 * c.g - 0.081312 * c.b;
-  float m = smoothstep(-0.23, -0.17, cb) * (1.0 - smoothstep(-0.03, 0.0, cb));
-  m *= smoothstep(0.01, 0.045, cr) * (1.0 - smoothstep(0.15, 0.19, cr));
-  m *= smoothstep(0.10, 0.30, y) * (1.0 - smoothstep(0.94, 1.0, y));
-  m *= smoothstep(0.0, 0.04, c.r - c.g);
-  return m;
+  float y=lum(c);
+  float cb=-.168736*c.r-.331264*c.g+.5*c.b;
+  float cr=.5*c.r-.418688*c.g-.081312*c.b;
+  return smoothstep(-.23,-.17,cb)*(1.-smoothstep(-.03,0.,cb))
+   *smoothstep(.01,.045,cr)*(1.-smoothstep(.15,.19,cr))
+   *smoothstep(.1,.3,y)*(1.-smoothstep(.94,1.,y))
+   *smoothstep(0.,.04,c.r-c.g);
 }
-
 void main(){
-  vec2 uv = vUv;
-  vec3 c = S(uv);
-
-  // 1) 피부 영역을 부드럽게 퍼뜨린 마스크 → 경계에 밝은 테두리가 생기지 않는다
-  float acc = skinLike(c) * 2.0, wsum = 2.0;
-  for (int i = 0; i < 6; i++){ acc += skinLike(S(uv + ring(float(i), 6.0, 0.012))); wsum += 1.0; }
-  float m = smoothstep(0.2, 0.85, acc / wsum);
-
-  // 2) 에지 보존(바이래터럴) 피부 보정: 밝기 차가 작은 잡티·결만 부드럽게, 눈·눈썹·윤곽은 그대로
-  float lc = lum(c);
-  vec3 sum = c; float ws = 1.0;
-  for (int i = 0; i < 12; i++){
-    vec3 s = S(uv + ring(float(i), 12.0, 0.0055));
-    float d = lum(s) - lc;
-    float w = exp(-d * d / 0.005);
-    sum += s * w; ws += w;
-  }
-  c = mix(c, sum / ws, clamp(uSkin * m, 0.0, 1.0));
-
-  // 3) 얼굴 중간톤 밝기: 피부 영역에서만 감마로 밝힘 (검정과 흰색은 그대로, 머리·검은 옷은 영향 없음)
-  float g = 1.0 - uFace * 1.36 * m;
-  c = pow(max(c, vec3(0.0001)), vec3(g));
-
-  vec3 o = c;
-  if (uBW > 0.5){
-    // 4) PARISIAN SOFT CONTRAST
-    float L = pan(c);
-    float ls = 0.0;
-    for (int i = 0; i < 6; i++) ls += pan(S(uv + ring(float(i), 6.0, 0.0035)));
-    L = mix(L, ls / 6.0, 0.28);                       // 디지털 선명함을 살짝 눌러줌
-    float lb = 0.0;
-    for (int i = 0; i < 6; i++) lb += pan(S(uv + ring(float(i), 6.0, 0.028)));
-    L += max(0.0, lb / 6.0 - 0.6) * 0.5 * uHiSoft;    // 하이라이트 블룸
-    L += uBright * 0.18;
-    float k = 2.2 + uContrast * 4.0;                  // 중간~조금 높은 대비의 S커브
-    float y0 = 1.0 / (1.0 + exp(k * 0.5)), y1 = 1.0 / (1.0 + exp(-k * 0.5));
-    L = (1.0 / (1.0 + exp(-k * (L - 0.5))) - y0) / (y1 - y0);
-    L = 0.03 + L * 0.94;                              // 깊지만 뭉개지지 않는 블랙
-    float sh = smoothstep(0.72, 1.0, L);
-    L -= sh * (L - 0.72) * uHiSoft * 0.3;             // 부드럽게 눌린 하이라이트
-    L = clamp(L, 0.0, 1.0);
-    vec3 tint = mix(vec3(1.0), vec3(1.0, 0.955, 0.87), uWarm);   // 크림빛 따뜻한 흑백
-    o = vec3(L) * tint + (1.0 - L) * uWarm * vec3(0.010, 0.004, 0.0);
-    // 은은한 비네팅 + 필름 그레인 + 아주 약한 톤 얼룩
-    float vg = smoothstep(0.45, 1.2, length((uv - 0.5) * vec2(1.0, 1.12) * 1.45));
-    o *= 1.0 - 0.12 * vg;
-    float n1 = hash(floor(uv * vec2(720.0, 900.0)) + uSeed * 13.7) - 0.5;
-    float n2 = hash(floor(uv * vec2(360.0, 450.0)) + uSeed * 7.3 + 31.0) - 0.5;
-    float mid = 0.5 + 0.9 * (1.0 - abs(L * 2.0 - 1.0));
-    o += (n1 * 0.75 + n2 * 0.5) * uGrain * 0.2 * mid;
-    o *= 1.0 + (vnoise(uv * vec2(3.0, 3.7) + uSeed) - 0.5) * 0.035;
-  }
-  gl_FragColor = vec4(clamp(o, 0.0, 1.0), 1.0);
+ vec2 uv=vUv;
+ vec3 orig=S(uv),c=orig;
+ float m=skinLike(orig);
+ // 약 5~10% 이하의 약한 국소 피부 보정. 눈·머리·입술의 강한 경계는 유지.
+ vec3 avg=vec3(0.); float wt=0.;
+ for(int i=0;i<8;i++){
+  float a=float(i)*.785398;
+  vec2 d=vec2(cos(a)/uAspect,sin(a))*.0028;
+  vec3 v=S(uv+d);
+  float delta=lum(v)-lum(orig);
+  float w=exp(-delta*delta/.0025)*skinLike(v);
+  avg+=v*w;wt+=w;
+ }
+ c=mix(c,avg/max(wt,.0001),clamp(uSkin,0.,.10)*m);
+ // 피부 중간톤만 약하게 밝힘, 어두운 머리·의상은 유지.
+ float mid=smoothstep(.14,.40,lum(c))*(1.-smoothstep(.75,.98,lum(c)));
+ c+=vec3(.115*mid*m);
+ // 밝기/대비 및 부드러운 하이라이트 롤오프.
+ c+=vec3(uBright*.22);
+ c=(c-.5)*(1.+uContrast*.95)+.5;
+ c=c/(1.+max(c-vec3(.78),vec3(0.))*.50);
+ if(uBW>.5){
+  float y=dot(c,vec3(.34,.52,.14));
+  y=clamp(y,0.,1.);
+  // 밝은 피부, 깊은 블랙, 크림빛 회색과 얕은 필름 그레인.
+  c=vec3(y)*mix(vec3(1.),vec3(1.,.974,.937),uWarm*.65);
+ } else {
+  // 따뜻한 스냅 컬러, 피부에만 약한 혈색을 더함.
+  float y=lum(c);
+  c=mix(vec3(y),c,1.+uHiSoft*.60);
+  c+=vec3(.018,-.003,-.014)*uWarm*m;
+ }
+ float vign=dot((uv-.5)*vec2(1.,1.15),(uv-.5)*vec2(1.,1.15));
+ c*=1.-.16*vign;
+ float noise=hash(floor(uv*vec2(900.,1125.))+uSeed*17.)-.5;
+ c+=vec3(noise*uGrain*.09);
+ gl_FragColor=vec4(clamp(c,0.,1.),1.);
 }`;
 
   function makePipe(canvas, keep) {
@@ -581,12 +521,15 @@ void main(){
   function params(over) {
     const a = state.adj;
     return Object.assign({
-      bw: state.parisian ? 1 : 0,
-      contrast: a.contrast, bright: a.brightness, grain: a.grain, hisoft: a.hisoft,
-      skin: state.skinOn ? a.skin * 0.8 : 0,
+      bw: state.mode === 'bw' ? 1 : 0,
+      contrast: (a.contrast - .5) * 1.1,
+      bright: (a.brightness - .5) * .8,
+      grain: a.grain,
+      hisoft: a.saturation,
+      skin: state.skinOn ? a.skin : 0,
       warm: a.warm,
-      face: FACE_LIFT[state.flash],
-      seed: 0
+      face: 0,
+      seed: 1
     }, over || {});
   }
   function cropFor(vw, vh) {
@@ -596,13 +539,7 @@ void main(){
   }
   const FULL = { x: 0, y: 0, w: 1, h: 1 };
 
-  // 라이브 프리뷰 루프
-  function loop(t) {
-    requestAnimationFrame(loop);
-    if (!glOK || !state.stream || shootSec.hidden || cam.readyState < 2 || !cam.videoWidth) return;
-    viewPipe.draw(cam, params({ seed: Math.floor(t / 90) % 97 }), cropFor(cam.videoWidth, cam.videoHeight), state.facing === 'user', VIEW_W, VIEW_H);
-  }
-  requestAnimationFrame(loop);
+  // 라이브 프리뷰는 원본 video를 직접 보여준다. 보정은 촬영 후에만 적용.
 
   // 카메라 프레임을 보정 없이 한 컷 크기로 잘라 둔다(원본)
   function captureRaw() {
@@ -612,13 +549,17 @@ void main(){
     const g = c.getContext('2d');
     if (state.facing === 'user') { g.translate(cw, 0); g.scale(-1, 1); }
     g.imageSmoothingQuality = 'high';
-    if (!glOK && state.parisian && 'filter' in g) g.filter = 'grayscale(1) contrast(1.3) brightness(1.08) sepia(.3)';
     g.drawImage(cam, cr.x * vw, cr.y * vh, cr.w * vw, cr.h * vh, 0, 0, cw, ch);
     return c;
   }
   // 프리뷰와 같은 셰이더로 원본을 처리해 저장용 이미지를 만든다
   function finalize(raw, prm) {
-    if (!glOK) return raw;
+    if (!glOK) {
+      const c = document.createElement('canvas'); c.width = raw.width; c.height = raw.height;
+      const g = c.getContext('2d');
+      g.filter = prm.bw > .5 ? 'grayscale(1) contrast(1.16) sepia(.08)' : 'contrast(1.08) saturate(1.12)';
+      g.drawImage(raw, 0, 0); return c;
+    }
     capPipe.draw(raw, prm, FULL, false, raw.width, raw.height);
     const c = document.createElement('canvas'); c.width = raw.width; c.height = raw.height;
     c.getContext('2d').drawImage(capCanvas, 0, 0);
@@ -645,19 +586,20 @@ void main(){
     $$('#segN button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.n === n)));
     renderSlots();
   }
-  function setFlash(v) {
-    state.flash = v; wall.dataset.flash = v;
-    $$('#segFlash button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.flash === v)));
-  }
   function setSkin(on) {
     state.skinOn = on;
     $$('#segSkin button').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.skin === 'natural') === on)));
-  }
-  function setParisian(on) {
-    state.parisian = on;
-    $$('[data-par]').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.par === 'on') === on)));
     if (!resultSec.hidden) render();
   }
+  function setMode(mode) {
+    state.mode = mode;
+    $$('#segMode button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+    const sat = $('#adj-saturation');
+    if (sat) sat.closest('.adjrow').hidden = mode === 'bw';
+    state.cache = {};
+    if (!resultSec.hidden) render();
+  }
+
   function setPhase(p) {
     state.phase = p;
     const shooting = p === 'shooting';
@@ -673,12 +615,13 @@ void main(){
   ADJ.forEach(([key, label, min, max]) => {
     const row = document.createElement('div'); row.className = 'adjrow';
     row.innerHTML = `<label for="adj-${key}">${label}</label><input id="adj-${key}" type="range" min="${min}" max="${max}" step="0.01" value="${state.adj[key]}">`;
-    row.querySelector('input').addEventListener('input', e => { state.adj[key] = +e.target.value; });
+    row.querySelector('input').addEventListener('input', e => { state.adj[key] = +e.target.value; state.cache = {}; if (!resultSec.hidden) render(); });
     adjBox.appendChild(row);
   });
   $('#adjReset').addEventListener('click', () => {
     state.adj = { ...DEFAULTS };
     ADJ.forEach(([key]) => { $('#adj-' + key).value = DEFAULTS[key]; });
+    state.cache = {}; if (!resultSec.hidden) render();
   });
 
   // ---- 카메라 ----
@@ -730,13 +673,9 @@ void main(){
   }
 
   // ---- 촬영 ----
-  function flash() {
-    flashEl.classList.remove('go'); void flashEl.offsetWidth; flashEl.classList.add('go');
-    lamp.classList.add('on'); setTimeout(() => lamp.classList.remove('on'), 260);
-  }
   async function shoot() {
     unlockAudio();
-    if (state.phase === 'shooting') { state.runId++; wall.classList.remove('pulse'); setPhase('ready'); resetShots(); renderSlots(); return; }
+    if (state.phase === 'shooting') { state.runId++; setPhase('ready'); resetShots(); renderSlots(); return; }
     if (!state.stream) { const ok = await startCamera(); if (!ok) return; await sleep(400); }
     const id = ++state.runId;
     resetShots(); renderSlots(); setPhase('shooting'); keepAwake(true);
@@ -744,26 +683,17 @@ void main(){
       const secs = i === 0 ? LEAD : INTERVAL;
       for (let s = secs; s >= 1; s--) {
         countEl.textContent = s; tick();
-        if (s === 1 && state.flash !== 'off') {
-          await sleep(450); if (id !== state.runId) return;
-          wall.classList.add('pulse');           // 찍기 직전 화면 조명을 잠깐 최대로
-          await sleep(550);
-        } else {
-          await sleep(1000);
-        }
-        if (id !== state.runId) { wall.classList.remove('pulse'); return; }
+        await sleep(1000);
+        if (id !== state.runId) return;
       }
       countEl.textContent = '';
-      // 프리뷰와 같은 파이프라인으로 처리 (화면 조명·플래시 애니메이션은 사진에 합성되지 않음)
-      const raw = captureRaw(), pr = params({ seed: i * 3 + 1 });
-      const done = finalize(raw, pr);
-      state.raws.push(raw); state.pars.push(pr); state.shots.push(done);
-      (state.cache[pr.bw] = state.cache[pr.bw] || {})[i] = done;
-      flash(); shutter();
-      setTimeout(() => wall.classList.remove('pulse'), 150);  // 천천히 원래 밝기로
+      // 촬영 원본만 보관. 필터는 결과 화면에서 적용한다.
+      const raw = captureRaw();
+      state.raws.push(raw); state.shots.push(raw);
+      shutter();
       renderSlots();
     }
-    await sleep(700);
+    await sleep(200);
     if (id !== state.runId) return;
     setPhase('ready'); stopCamera(); keepAwake(false);
     shootSec.hidden = true; resultSec.hidden = false;
@@ -778,9 +708,9 @@ void main(){
   }
 
   function looked(i) {
-    const key = state.parisian ? 1 : 0;
+    const key = JSON.stringify([state.mode,state.skinOn,state.adj]);
     const c = state.cache[key] || (state.cache[key] = {});
-    return c[i] || (c[i] = finalize(state.raws[i], Object.assign({}, state.pars[i], { bw: key })));
+    return c[i] || (c[i] = finalize(state.raws[i], params({seed:i*3+1})));
   }
 
   // ---- 사진(스트립) 합성: 같은 필터가 네 컷 모두에 적용됨 ----
@@ -933,9 +863,8 @@ void main(){
   // ---- 이벤트 ----
   $('#enterBtn').addEventListener('click', enter);
   $$('#segN button').forEach(b => b.addEventListener('click', () => setN(+b.dataset.n)));
-  $$('#segFlash button').forEach(b => b.addEventListener('click', () => setFlash(b.dataset.flash)));
+  $$('#segMode button').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
   $$('#segSkin button').forEach(b => b.addEventListener('click', () => setSkin(b.dataset.skin === 'natural')));
-  $$('[data-par]').forEach(b => b.addEventListener('click', () => setParisian(b.dataset.par === 'on')));
   startBtn.addEventListener('click', shoot);
   flipBtn.addEventListener('click', async () => {
     state.facing = state.facing === 'user' ? 'environment' : 'user';
@@ -946,11 +875,11 @@ void main(){
   $('#retakeBtn').addEventListener('click', retake);
   footerText.addEventListener('input', () => { clearTimeout(footerText.t); footerText.t = setTimeout(render, 120); });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && state.phase === 'shooting') { state.runId++; wall.classList.remove('pulse'); setPhase('ready'); resetShots(); renderSlots(); }
+    if (document.hidden && state.phase === 'shooting') { state.runId++; setPhase('ready'); resetShots(); renderSlots(); }
     if (!document.hidden && !shootSec.hidden) keepAwake(true);
   });
 
-  renderSlots(); setFlash('soft'); setSkin(true); setParisian(true); setPhase('idle'); syncBg();
+  renderSlots(); setSkin(true); setMode('color'); setPhase('idle'); syncBg();
   window.__booth = { state, render, params, finalize, glOK, FULL };
 })();
 </script>
