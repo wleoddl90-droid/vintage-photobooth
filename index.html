@@ -326,7 +326,7 @@
   ];
 
   // 촬영 후 보정 기본값. 0~1 슬라이더는 색/밝기 조정에만 사용.
-  const DEFAULTS = { contrast: .60, brightness: .52, grain: .22 };
+  const DEFAULTS = { contrast: .62, brightness: .52, grain: .42 };
   const ADJ = [
     ['contrast','Contrast',0,1], ['brightness','Brightness',0,1], ['grain','Film Grain',0,1]
   ];
@@ -397,26 +397,31 @@ float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 void main(){
  vec2 uv=vUv;
  vec3 rgb=S(uv);
- // Strict neutral monochrome: no sepia or cream tint.
  float l=dot(rgb,vec3(.299,.587,.114));
- // Mild analogue softness without changing shapes or facial details.
- vec2 dx=vec2(.00065/uAspect,0.);
- vec2 dy=vec2(0.,.00065);
- float neighbor=(dot(S(uv+dx),vec3(.299,.587,.114))+dot(S(uv-dx),vec3(.299,.587,.114))+dot(S(uv+dy),vec3(.299,.587,.114))+dot(S(uv-dy),vec3(.299,.587,.114)))*.25;
- l=mix(l,neighbor,.10);
- // Direct-flash tonal impression, deeper blacks and soft highlight shoulder.
+ // Subtle analogue lens softness without changing facial geometry.
+ vec2 dx=vec2(.001/uAspect,0.);
+ vec2 dy=vec2(0.,.001);
+ float blur=(dot(S(uv+dx),vec3(.299,.587,.114))+dot(S(uv-dx),vec3(.299,.587,.114))+dot(S(uv+dy),vec3(.299,.587,.114))+dot(S(uv-dy),vec3(.299,.587,.114)))*.25;
+ l=mix(l,blur,.16);
+ // Neutral silver-gelatin B&W film curve: dense blacks, gentle shoulder.
  l=clamp(l+(uBright-.5)*.18,0.,1.);
- l=(l-.48)*(1.12+uContrast*.58)+.48;
- l=max(0.,l);
- l=1.-exp(-l*1.50);
- l=pow(clamp(l,0.,1.),.86);
- // Subtle edge falloff; background is not segmented or replaced.
- vec2 pos=(uv-.5)*vec2(1.,1.08);
- float v=smoothstep(.10,.68,dot(pos,pos));
- l*=1.-.25*v;
- float n=hash(floor(uv*vec2(780.,980.))+uSeed*17.)-.5;
- l=clamp(l+n*uGrain*.10,0.,1.);
- gl_FragColor=vec4(vec3(l),1.);
+ l=(l-.46)*(1.15+uContrast*.55)+.46;
+ l=pow(smoothstep(.025,.985,clamp(l,0.,1.)),.94);
+ l=min(1.,l+max(blur-.70,0.)*.065);
+ // Flash falloff: center lit, background/edges darker; not person segmentation.
+ vec2 pos=(uv-vec2(.5,.49))*vec2(1.10,1.02);
+ float radius=length(pos);
+ float v=smoothstep(.19,.69,radius);
+ l*=1.-.53*v;
+ float center=1.-smoothstep(.12,.45,radius);
+ l=clamp(l+center*.025,0.,1.);
+ // Fine and coarse analogue grain, consistent for each saved shot.
+ float fine=hash(floor(uv*vec2(1050.,1310.))+uSeed*17.)-.5;
+ float coarse=hash(floor(uv*vec2(390.,490.))+uSeed*29.+13.)-.5;
+ float mid=clamp(1.-abs(l-.48)*1.5,.25,1.);
+ l+=(fine*.105+coarse*.045)*uGrain*mid;
+ gl_FragColor=vec4(vec3(clamp(l,0.,1.)),1.);
+}
 }`;
 
   function makePipe(canvas, keep) {
